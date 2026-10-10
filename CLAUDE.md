@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Random Space Battles: an endless, hands-off procedurally generated fleet battle viewer, shipped as an offline PWA. There is no build step and there are no dependencies. The code is plain ES modules loaded straight from `index.html`.
 
-(The parent `../CLAUDE.md` describes an unrelated Rust/Fallout project. Ignore it here.)
+(The parent `../CLAUDE.md` describes the shoryuken.me workspace and its shared-origin rules; the one above that, `~/Workspace/CLAUDE.md`, is an unrelated Rust/Fallout project. Ignore that one here.)
 
 ## Commands
 
@@ -43,8 +43,17 @@ A battle is fully determined by its seed. Reloading the `#seed=` URL has to repl
 
 - **Adding or renaming a file:** add it to `ASSETS` in `sw.js` (`tests/assets.test.mjs` fails otherwise). The cache name comes from `VERSION`, because app.js registers `sw.js?v=<VERSION>`, so run `npm run bump` to force installed copies onto a clean cache.
 - **Manifest `id`:** `manifest.webmanifest` pins `"id": "/rsb/index.html"`, which is the id installed copies got from the old `start_url` at shoryuken.me/rsb. Never change it: browsers would treat the app as a new one and existing installs would duplicate. `start_url` can change freely.
+- **Shared origin:** this app lives on shoryuken.me next to other PWAs (`/rmb/`, `/rqm/`, `/space/` and more). `localStorage` keys use the `rsb.` prefix, `sw.js` deletes only caches with its own `rsb-` prefix, and `sw.js` handles only requests inside `self.registration.scope`, reads and writes only its own cache (`caches.open(CACHE_NAME)`, never `caches.match()`, which searches every app's caches), precaches with `cache: 'reload'` and fetches with `cache: 'no-cache'` so Cloudflare's 4 h max-age on JS/CSS can't serve stale code after a deploy. RMB and Quidditch copy this `sw.js`; keep them in step.
 - **Icons:** the UI uses the inline SVG sprite at the top of `index.html` (24×24 `<symbol id="i-…">`, stroked in `currentColor` and styled by `.icon`). Don't use emoji. Swap an icon with `useIcon(button, name)` in app.js.
 - **Touch:** the HUD fades when idle, and the click after a tap that wakes it is swallowed on purpose, so invisible buttons can't be pressed. Keep control-bar buttons at 38 px or more, and keep the bar within 288 px so it fits on a 320 px phone.
 - **Tuning pacing:** `DAMAGE_SCALE` in `gen.js` (lower means longer battles) and `TIME_LIMIT` in `sim.js`.
 - **New weapon types:** add them to `WEAPON_TYPES` with a `kind` of `beam`, `bolt` or `missile`. `minSize` keeps a weapon off small hulls, `spinal` means it must face its target, and `pd` marks point defence. The tests require every design to carry at least one non-PD weapon and fighters to carry no `minSize` weapons. `audio.js` switches on the weapon type for per-weapon sounds.
 - `tests/sim.test.mjs` covers generation validity across 200 seeds, determinism and the rule that every battle ends within `TIME_LIMIT`. Run it after any balance or sim change.
+
+## Deployment
+
+Live at https://shoryuken.me/rsb/ (`/var/www/shoryuken.me/rsb/`; see the server's `/var/www/shoryuken.me/CLAUDE.md`). After `npm test` and `npm run bump`, ship only the served files:
+
+```bash
+rsync -a --delete --chmod=D755,F644 index.html manifest.webmanifest sw.js css js icons root@185.163.204.17:/var/www/shoryuken.me/rsb/
+```

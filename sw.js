@@ -1,7 +1,10 @@
 // Service worker: caches the app shell so it works fully offline after one visit.
 // app.js registers this as sw.js?v=<VERSION>, so bumping js/version.js installs a
 // fresh worker with a clean cache.
-const CACHE_NAME = `rsb-${new URL(self.location).searchParams.get('v') ?? 'dev'}`;
+// Other apps share this origin, so only caches with this app's prefix are ours to
+// clean up.
+const CACHE_PREFIX = 'rsb-';
+const CACHE_NAME = `${CACHE_PREFIX}${new URL(self.location).searchParams.get('v') ?? 'dev'}`;
 const ASSETS = [
   './',
   './index.html',
@@ -24,34 +27,38 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS.map((a) => new Request(a, { cache: 'reload' })))).then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('rsb-') && k !== CACHE_NAME).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
+  const req = event.request;
+  // Only this app's own URLs: the scope includes the origin and path, and other apps
+  // share the origin.
+  if (req.method !== 'GET' || !req.url.startsWith(self.registration.scope)) return;
 
   // Network first, so an update shows up on the very next load and HTML, CSS and JS
-  // never mix versions; the cache is only the offline fallback.
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request, { ignoreSearch: true })
-        .then((cached) => cached || caches.match('./index.html')))
-  );
+  // never mix versions; our own cache is only the offline fallback. 'no-cache'
+  // revalidates past the long max-age Cloudflare stamps on scripts. Never use
+  // caches.match(): it searches every app's caches on the origin.
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    try {
+      const response = await fetch(req, { cache: 'no-cache' });
+      if (response.ok) cache.put(req, response.clone());
+      return response;
+    } catch (err) {
+      const cached = await cache.match(req, { ignoreSearch: true });
+      if (cached) return cached;
+      if (req.mode === 'navigate') return (await cache.match('./index.html')) ?? Response.error();
+      throw err;
+    }
+  })());
 });
