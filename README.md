@@ -1,5 +1,14 @@
 # Random Space Battles
 
+[![CI](https://github.com/ali-raheem/random-space-battles/actions/workflows/ci.yml/badge.svg)](https://github.com/ali-raheem/random-space-battles/actions/workflows/ci.yml) [![GitHub Pages](https://github.com/ali-raheem/random-space-battles/actions/workflows/pages.yml/badge.svg)](https://github.com/ali-raheem/random-space-battles/actions/workflows/pages.yml)
+
+**▶ Try it live: [shoryuken.me/rsb](https://shoryuken.me/rsb/)** · mirror on [GitHub Pages](https://ali-raheem.github.io/random-space-battles/) · installable, works offline
+
+<p align="center">
+  <a href="https://shoryuken.me/rsb/"><img src="docs/screenshots/desktop.webp" alt="Random Space Battles on a desktop browser" width="74%"></a>
+  <a href="https://shoryuken.me/rsb/"><img src="docs/screenshots/mobile.webp" alt="Random Space Battles on a phone" width="22%"></a>
+</p>
+
 An endless, hands-off space battle generator. Each battle pits two (sometimes three)
 procedurally generated fleets against each other. When one side is left standing,
 a victory banner shows and a brand new battle starts.
